@@ -1,0 +1,208 @@
+-- IU Hub Script for Roblox
+-- Features: Fly System & Block Magnet System
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "IU Hub | Roblox Script",
+   LoadingTitle = "IU Hub Loading...",
+   LoadingSubtitle = "by Assistant",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Main Functions", 4483362458) -- Title, Image
+
+----------------------------------------------------------------
+-- 1. FLY SYSTEM (ระบบบิน)
+----------------------------------------------------------------
+local FlySection = MainTab:CreateSection("Fly System")
+
+local flying = false
+local flySpeed = 50
+local maxFlySpeed = 1000
+local minFlySpeed = 10
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+end)
+
+local bodyGyro, bodyVelocity
+
+local function startFly()
+    if not RootPart then return end
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 9e4
+    bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.cframe = RootPart.CFrame
+    bodyGyro.Parent = RootPart
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Parent = RootPart
+
+    Humanoid.PlatformStand = true
+end
+
+local function stopFly()
+    if bodyGyro then bodyGyro:Destroy() end
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if Humanoid then Humanoid.PlatformStand = false end
+end
+
+-- Fly Toggle
+local FlyEnabled = false
+MainTab:CreateToggle({
+   Name = "Enable Fly System (เปิดระบบบิน)",
+   CurrentValue = false,
+   Callback = function(Value)
+      FlyEnabled = Value
+      if not FlyEnabled and flying then
+          flying = false
+          stopFly()
+      end
+   end,
+})
+
+-- Fly Speed Slider
+MainTab:CreateSlider({
+   Name = "Fly Speed (ความเร็วการบิน)",
+   Range = {10, 1000},
+   Increment = 10,
+   Suffix = " Speed",
+   CurrentValue = 50,
+   Callback = function(Value)
+      flySpeed = Value
+   end,
+})
+
+-- Keybinds for Fly
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    -- Press F to Toggle Flying Mode
+    if input.KeyCode == Enum.KeyCode.F and FlyEnabled then
+        flying = not flying
+        if flying then
+            startFly()
+        else
+            stopFly()
+        end
+    end
+    
+    -- Press '+' or Keypad Plus to increase speed
+    if input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.KeypadPlus then
+        if flySpeed + 10 <= maxFlySpeed then
+            flySpeed = flySpeed + 10
+            Rayfield:Notify({Title = "Fly Speed", Content = "Speed: " .. tostring(flySpeed), Duration = 1.5})
+        end
+    end
+    
+    -- Press '-' or Keypad Minus to decrease speed
+    if input.KeyCode == Enum.KeyCode.Minus or input.KeyCode == Enum.KeyCode.KeypadMinus then
+        if flySpeed - 10 >= minFlySpeed then
+            flySpeed = flySpeed - 10
+            Rayfield:Notify({Title = "Fly Speed", Content = "Speed: " .. tostring(flySpeed), Duration = 1.5})
+        end
+    end
+end)
+
+-- Main Fly Movement Loop
+RunService.RenderStepped:Connect(function()
+    if flying and RootPart and bodyGyro and bodyVelocity then
+        local camera = workspace.CurrentCamera
+        local moveVector = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveVector = moveVector + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveVector = moveVector - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveVector = moveVector - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveVector = moveVector + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveVector = moveVector + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveVector = moveVector - Vector3.new(0, 1, 0)
+        end
+        
+        bodyGyro.cframe = camera.CFrame
+        bodyVelocity.velocity = moveVector * flySpeed
+    end
+end)
+
+
+----------------------------------------------------------------
+-- 2. BLOCK MAGNET SYSTEM (ระบบดูดบล็อก)
+----------------------------------------------------------------
+local MagnetSection = MainTab:CreateSection("Block Magnet System")
+
+local magnetEnabled = false
+local magnetRadius = 50
+
+MainTab:CreateToggle({
+   Name = "Enable Magnet (เปิดระบบดูดบล็อก)",
+   CurrentValue = false,
+   Callback = function(Value)
+      magnetEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "Magnet Radius (รัศมีดูดบล็อก)",
+   Range = {1, 1000},
+   Increment = 5,
+   Suffix = " Studs",
+   CurrentValue = 50,
+   Callback = function(Value)
+      magnetRadius = Value
+   end,
+})
+
+-- Magnet Loop Process
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if magnetEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+            
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character) and not obj.Anchored then
+                    -- ตรวจสอบระยะห่าง
+                    local distance = (obj.Position - myPos).Magnitude
+                    if distance <= magnetRadius then
+                        -- ดูดบล็อก/พาร์ทเข้ามายังตำแหน่งตัวผู้เล่น
+                        obj.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+                    end
+                end
+            end
+        end
+    end
+end)
+
+Rayfield:Notify({
+   Title = "IU Hub Loaded",
+   Content = "กด F เพื่อบิน | กด + / - เพื่อปรับความเร็ว",
+   Duration = 5,
+})
